@@ -1,0 +1,759 @@
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="yangs---Yet-Another-NonoGram-Solver">yangs - Yet Another NonoGram Solver<a class="anchor-link" href="#yangs---Yet-Another-NonoGram-Solver">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Aim">Aim<a class="anchor-link" href="#Aim">&#182;</a></h2><p>Solve the first part of the GCHQ Christmas puzzle using a concise, easy-to-understand Python program.</p>
+<h2 id="Method">Method<a class="anchor-link" href="#Method">&#182;</a></h2><p>The <a href="http://www.gchq.gov.uk/press_and_media/news_and_features/Pages/Directors-Christmas-puzzle-2015.aspx">puzzle</a> is a 25x25 <a href="https://en.wikipedia.org/wiki/Nonogram">nonogram</a>. I decided to write a program that uses the same method that I would use if solving the puzzle by hand:</p>
+<ol>
+<li>For each row and column, <strong>generate the set of patterns</strong> that match the given clues</li>
+<li>For each row, <strong>eliminate the patterns</strong> that don't match the cells we already know</li>
+<li>For each row, <strong>deduce the known cells</strong> based on the reduced pattern set</li>
+<li>For each column, <strong>eliminate the patterns</strong> that don't match the cells we already know</li>
+<li>For each column, <strong>deduce the known cells</strong> based on the reduced pattern set</li>
+<li>Go back to 2. and repeat, unless we've solved it</li>
+</ol>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Imports-and-settings">Imports and settings<a class="anchor-link" href="#Imports-and-settings">&#182;</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[1]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">combinations_with_replacement</span>
+<span class="n">SHOW_TESTS</span> <span class="o">=</span> <span class="bp">True</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Input-data">Input data<a class="anchor-link" href="#Input-data">&#182;</a></h2><p>Put all the clues into a list of lists:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[2]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="n">ROW_CLUES</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,],</span>
+<span class="p">]</span>
+
+<span class="n">COL_CLUES</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">6</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+    <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,],</span>
+<span class="p">]</span>
+
+<span class="n">ROW_LEN</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">COL_CLUES</span><span class="p">)</span>
+<span class="n">COL_LEN</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ROW_CLUES</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Set up a grid to contain the result, and fill in the cells we already know.</p>
+<p>Notes:</p>
+<ul>
+<li>I'm using 1 to represent a known filled cell, 0 for a known blank cell, and None for an unknown cell.</li>
+<li>The rows must be repeated using list comprehension. Using list repetition <strong>(i.e. result = [[None] * ROW_LEN] * COL_LEN)</strong> would result in a list of references to the same row list.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[3]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="c"># Create blank results grid</span>
+<span class="n">result</span> <span class="o">=</span> <span class="p">[[</span><span class="bp">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">ROW_LEN</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">COL_LEN</span><span class="p">)]</span>
+
+<span class="c"># Fill in the cells we already know</span>
+<span class="n">known_coords</span> <span class="o">=</span> <span class="p">{</span><span class="mi">3</span><span class="p">:</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">21</span><span class="p">),</span>
+                <span class="mi">8</span><span class="p">:</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">18</span><span class="p">),</span>
+                <span class="mi">16</span><span class="p">:</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span>
+                <span class="mi">21</span><span class="p">:</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">21</span><span class="p">)</span>
+               <span class="p">}</span>
+
+<span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="n">cols</span> <span class="ow">in</span> <span class="n">known_coords</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">cols</span><span class="p">:</span>
+        <span class="n">result</span><span class="p">[</span><span class="n">row</span><span class="p">][</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Helper-functions">Helper functions<a class="anchor-link" href="#Helper-functions">&#182;</a></h2><p>Define some functions to display the results:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[4]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="n">SYMBOLS</span> <span class="o">=</span> <span class="p">{</span><span class="bp">None</span><span class="p">:</span> <span class="s">&#39;?&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="s">&#39;#&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="s">&#39;.&#39;</span><span class="p">}</span>
+
+<span class="k">def</span> <span class="nf">print_row</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="k">print</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> [</span><span class="si">%s</span><span class="s">]&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">rjust</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span> <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">SYMBOLS</span><span class="p">[</span><span class="n">cell</span><span class="p">]</span> <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="n">row</span><span class="p">))</span>
+        
+<span class="k">def</span> <span class="nf">print_grid</span><span class="p">(</span><span class="n">rows</span><span class="p">):</span>
+    <span class="n">col_labels</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">rjust</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">[</span><span class="mi">0</span><span class="p">]))]</span>
+    <span class="k">print</span> <span class="s">&#39;   &#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cl</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">cl</span> <span class="ow">in</span> <span class="n">col_labels</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s">&#39;   &#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cl</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">cl</span> <span class="ow">in</span> <span class="n">col_labels</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">rows</span><span class="p">):</span>
+        <span class="n">print_row</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+
+<span class="c"># Test</span>
+<span class="k">if</span> <span class="n">SHOW_TESTS</span><span class="p">:</span>
+    <span class="n">print_grid</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>                        1 1 1 1 1 1 1 1 1 1 2 2 2 2 2
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4
+ 0 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+ 1 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+ 2 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+ 3 [? ? ? # # ? ? ? ? ? ? ? # # ? ? ? ? ? ? ? # ? ? ?]
+ 4 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+ 5 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+ 6 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+ 7 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+ 8 [? ? ? ? ? ? # # ? ? # ? ? ? # # ? ? # ? ? ? ? ? ?]
+ 9 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+10 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+11 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+12 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+13 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+14 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+15 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+16 [? ? ? ? ? ? # ? ? ? ? # ? ? ? ? # ? ? ? # ? ? ? ?]
+17 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+18 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+19 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+20 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+21 [? ? ? # # ? ? ? ? # # ? ? ? ? # ? ? ? ? # # ? ? ?]
+22 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+23 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+24 [? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?]
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>And a function to count the number of unknown cells in the results. We'll use this to check if we've solved the puzzle, or if we're not making progress.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[5]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="k">def</span> <span class="nf">count_unknowns</span><span class="p">(</span><span class="n">rows</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">)</span>
+
+<span class="c"># Test</span>
+<span class="k">if</span> <span class="n">SHOW_TESTS</span><span class="p">:</span>
+    <span class="k">print</span> <span class="s">&#39;Unknowns = </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">count_unknowns</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Unknowns = 603
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Generate-sets-of-patterns">Generate sets of patterns<a class="anchor-link" href="#Generate-sets-of-patterns">&#182;</a></h2><p>Terminology:</p>
+<ul>
+<li>Block = one or more consecutive filled cells</li>
+<li>Space = an unfilled cell</li>
+<li>Clue = the lengths of each block</li>
+<li>Pattern = a series of cells that match the clue</li>
+</ul>
+<p>The <strong>generate_patterns</strong> function does step 1 of the general approach: give it the clue and the pattern length, and it generates all the possible patterns.</p>
+<p>For the clue [7, 3, 1, 1, 7] and length = 25:</p>
+<ul>
+<li>There are 5 blocks, comprising 7 + 3 + 1 + 1 + 7 = 19 filled cells.</li>
+<li>There are 6 <strong>positions</strong> where spaces can be inserted (numbered 0 through 5)</li>
+<li>The middle 4 positions all must have at least one space - so there are 4 <strong>fixed spaces</strong></li>
+<li>That means there are 25 - 19 - 4 = 2 <strong>movable spaces</strong>, which can go in any permutation of the 6 positions</li>
+<li>Therefore, there are 6CR2 = 21 different patterns that match this clue</li>
+</ul>
+<table>
+<thead><tr>
+<th>position</th>
+<th>0</th>
+<th>1</th>
+<th>1</th>
+<th>2</th>
+<th>2</th>
+<th>3</th>
+<th>3</th>
+<th>4</th>
+<th>4</th>
+<th>5</th>
+<th>5</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>blocks and fixed spaces</td>
+<td></td>
+<td>1111111</td>
+<td>0</td>
+<td>111</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>1111111</td>
+<td></td>
+</tr>
+<tr>
+<td>movable spaces (any 2 of 6 positions)</td>
+<td>?</td>
+<td></td>
+<td>?</td>
+<td></td>
+<td>?</td>
+<td></td>
+<td>?</td>
+<td></td>
+<td>?</td>
+<td></td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[6]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="k">def</span> <span class="nf">generate_patterns</span><span class="p">(</span><span class="n">clue</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+    <span class="n">blocks</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">clue</span>
+    <span class="n">fixed_spaces</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">clue</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">positions</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">blocks</span><span class="p">))</span>
+    <span class="n">n_movable_spaces</span> <span class="o">=</span> <span class="n">length</span> <span class="o">-</span> <span class="nb">sum</span><span class="p">(</span><span class="n">clue</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">clue</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="k">for</span> <span class="n">space_positions</span> <span class="ow">in</span> <span class="n">combinations_with_replacement</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">n_movable_spaces</span><span class="p">):</span>
+        <span class="n">movable_spaces</span> <span class="o">=</span> <span class="p">[</span><span class="n">space_positions</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">positions</span><span class="p">]</span>
+        <span class="k">yield</span> <span class="nb">sum</span><span class="p">(([</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">b</span> <span class="o">+</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">fs</span> <span class="o">+</span> <span class="n">ms</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">ms</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">blocks</span><span class="p">,</span> <span class="n">fixed_spaces</span><span class="p">,</span> <span class="n">movable_spaces</span><span class="p">)),</span> <span class="p">[])</span>
+
+<span class="c"># Test</span>
+<span class="k">if</span> <span class="n">SHOW_TESTS</span><span class="p">:</span>
+    <span class="n">test_pats</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">generate_patterns</span><span class="p">([</span><span class="mi">7</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="mi">25</span><span class="p">))</span>
+    <span class="n">print_grid</span><span class="p">(</span><span class="n">test_pats</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>                        1 1 1 1 1 1 1 1 1 1 2 2 2 2 2
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4
+ 0 [. . # # # # # # # . # # # . # . # . # # # # # # #]
+ 1 [. # # # # # # # . . # # # . # . # . # # # # # # #]
+ 2 [. # # # # # # # . # # # . . # . # . # # # # # # #]
+ 3 [. # # # # # # # . # # # . # . . # . # # # # # # #]
+ 4 [. # # # # # # # . # # # . # . # . . # # # # # # #]
+ 5 [. # # # # # # # . # # # . # . # . # # # # # # # .]
+ 6 [# # # # # # # . . . # # # . # . # . # # # # # # #]
+ 7 [# # # # # # # . . # # # . . # . # . # # # # # # #]
+ 8 [# # # # # # # . . # # # . # . . # . # # # # # # #]
+ 9 [# # # # # # # . . # # # . # . # . . # # # # # # #]
+10 [# # # # # # # . . # # # . # . # . # # # # # # # .]
+11 [# # # # # # # . # # # . . . # . # . # # # # # # #]
+12 [# # # # # # # . # # # . . # . . # . # # # # # # #]
+13 [# # # # # # # . # # # . . # . # . . # # # # # # #]
+14 [# # # # # # # . # # # . . # . # . # # # # # # # .]
+15 [# # # # # # # . # # # . # . . . # . # # # # # # #]
+16 [# # # # # # # . # # # . # . . # . . # # # # # # #]
+17 [# # # # # # # . # # # . # . . # . # # # # # # # .]
+18 [# # # # # # # . # # # . # . # . . . # # # # # # #]
+19 [# # # # # # # . # # # . # . # . . # # # # # # # .]
+20 [# # # # # # # . # # # . # . # . # # # # # # # . .]
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Eliminate-patterns">Eliminate patterns<a class="anchor-link" href="#Eliminate-patterns">&#182;</a></h2><p>The <strong>eliminate_patterns</strong> function does steps 2 and 4 of the general approach: give it a list of patterns, and it will eliminate the patterns that don't match the already-known cells.</p>
+<p>Notes:</p>
+<ul>
+<li>The set of patterns is iterated in reverse order so that deleting an item won't change the indices of the items yet to be iterated.</li>
+<li>The <strong>any</strong> function will short circuit as soon as it finds a cell in the pattern that conflicts with the known cells</li>
+<li>I've used <strong>del patterns[i]</strong> instead of <strong>patterns.pop(i)</strong> because we don't need to do anything with the item after it's removed from the list</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[7]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="k">def</span> <span class="nf">eliminate_patterns</span><span class="p">(</span><span class="n">patterns</span><span class="p">,</span> <span class="n">knowns</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">patterns</span><span class="p">))):</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">patterns</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">knowns</span><span class="p">)):</span>
+            <span class="k">del</span> <span class="n">patterns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+<span class="c"># Test</span>
+<span class="k">if</span> <span class="n">SHOW_TESTS</span><span class="p">:</span>
+    <span class="k">print</span> <span class="s">&#39;Before:&#39;</span>
+    <span class="n">print_grid</span><span class="p">(</span><span class="n">test_pats</span><span class="p">)</span>
+    <span class="k">print</span>
+    <span class="k">print</span> <span class="s">&#39;Apply Knowns:&#39;</span>
+    <span class="n">test_knowns</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="bp">None</span><span class="p">]</span><span class="o">*</span><span class="mi">23</span> <span class="o">+</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">print_row</span><span class="p">(</span><span class="n">test_knowns</span><span class="p">)</span>
+    <span class="k">print</span>
+    <span class="k">print</span> <span class="s">&#39;After:&#39;</span>
+    <span class="n">eliminate_patterns</span><span class="p">(</span><span class="n">test_pats</span><span class="p">,</span> <span class="n">test_knowns</span><span class="p">)</span>
+    <span class="n">print_grid</span><span class="p">(</span><span class="n">test_pats</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Before:
+                        1 1 1 1 1 1 1 1 1 1 2 2 2 2 2
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4
+ 0 [. . # # # # # # # . # # # . # . # . # # # # # # #]
+ 1 [. # # # # # # # . . # # # . # . # . # # # # # # #]
+ 2 [. # # # # # # # . # # # . . # . # . # # # # # # #]
+ 3 [. # # # # # # # . # # # . # . . # . # # # # # # #]
+ 4 [. # # # # # # # . # # # . # . # . . # # # # # # #]
+ 5 [. # # # # # # # . # # # . # . # . # # # # # # # .]
+ 6 [# # # # # # # . . . # # # . # . # . # # # # # # #]
+ 7 [# # # # # # # . . # # # . . # . # . # # # # # # #]
+ 8 [# # # # # # # . . # # # . # . . # . # # # # # # #]
+ 9 [# # # # # # # . . # # # . # . # . . # # # # # # #]
+10 [# # # # # # # . . # # # . # . # . # # # # # # # .]
+11 [# # # # # # # . # # # . . . # . # . # # # # # # #]
+12 [# # # # # # # . # # # . . # . . # . # # # # # # #]
+13 [# # # # # # # . # # # . . # . # . . # # # # # # #]
+14 [# # # # # # # . # # # . . # . # . # # # # # # # .]
+15 [# # # # # # # . # # # . # . . . # . # # # # # # #]
+16 [# # # # # # # . # # # . # . . # . . # # # # # # #]
+17 [# # # # # # # . # # # . # . . # . # # # # # # # .]
+18 [# # # # # # # . # # # . # . # . . . # # # # # # #]
+19 [# # # # # # # . # # # . # . # . . # # # # # # # .]
+20 [# # # # # # # . # # # . # . # . # # # # # # # . .]
+
+Apply Knowns:
+ 0 [# ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? #]
+
+After:
+                        1 1 1 1 1 1 1 1 1 1 2 2 2 2 2
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4
+ 0 [# # # # # # # . . . # # # . # . # . # # # # # # #]
+ 1 [# # # # # # # . . # # # . . # . # . # # # # # # #]
+ 2 [# # # # # # # . . # # # . # . . # . # # # # # # #]
+ 3 [# # # # # # # . . # # # . # . # . . # # # # # # #]
+ 4 [# # # # # # # . # # # . . . # . # . # # # # # # #]
+ 5 [# # # # # # # . # # # . . # . . # . # # # # # # #]
+ 6 [# # # # # # # . # # # . . # . # . . # # # # # # #]
+ 7 [# # # # # # # . # # # . # . . . # . # # # # # # #]
+ 8 [# # # # # # # . # # # . # . . # . . # # # # # # #]
+ 9 [# # # # # # # . # # # . # . # . . . # # # # # # #]
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Deduce-known-cells">Deduce known cells<a class="anchor-link" href="#Deduce-known-cells">&#182;</a></h2><p>The <strong>generate_knowns</strong> function does steps 3 and 5 of the general approach: give it a set of patterns, and it will deduce which cells are now known.</p>
+<p>For each cell, if all the patterns have the same value for each cell, then that is the only possible value for that cell.</p>
+<p>Notes:</p>
+<ul>
+<li><strong>zip(*patterns)</strong> transposes the pattern set so that we check one column at a time instead of one row a time</li>
+<li>the <strong>all</strong> function will short circuit as soon as it finds a cell that doesn't match the cell in first pattern</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[8]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="k">def</span> <span class="nf">generate_knowns</span><span class="p">(</span><span class="n">patterns</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">patterns</span><span class="p">):</span>
+        <span class="k">yield</span> <span class="n">col</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">c</span> <span class="o">==</span> <span class="n">col</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">col</span><span class="p">)</span> <span class="k">else</span> <span class="bp">None</span>
+
+<span class="c"># Test</span>
+<span class="k">if</span> <span class="n">SHOW_TESTS</span><span class="p">:</span>
+    <span class="k">print</span> <span class="s">&#39;Patterns:&#39;</span>
+    <span class="n">print_grid</span><span class="p">(</span><span class="n">test_pats</span><span class="p">)</span>
+    <span class="k">print</span>
+    <span class="k">print</span> <span class="s">&#39;Knowns:&#39;</span>
+    <span class="n">test_knowns</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">generate_knowns</span><span class="p">(</span><span class="n">test_pats</span><span class="p">))</span>
+    <span class="n">print_row</span><span class="p">(</span><span class="n">test_knowns</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Patterns:
+                        1 1 1 1 1 1 1 1 1 1 2 2 2 2 2
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4
+ 0 [# # # # # # # . . . # # # . # . # . # # # # # # #]
+ 1 [# # # # # # # . . # # # . . # . # . # # # # # # #]
+ 2 [# # # # # # # . . # # # . # . . # . # # # # # # #]
+ 3 [# # # # # # # . . # # # . # . # . . # # # # # # #]
+ 4 [# # # # # # # . # # # . . . # . # . # # # # # # #]
+ 5 [# # # # # # # . # # # . . # . . # . # # # # # # #]
+ 6 [# # # # # # # . # # # . . # . # . . # # # # # # #]
+ 7 [# # # # # # # . # # # . # . . . # . # # # # # # #]
+ 8 [# # # # # # # . # # # . # . . # . . # # # # # # #]
+ 9 [# # # # # # # . # # # . # . # . . . # # # # # # #]
+
+Knowns:
+ 0 [# # # # # # # . ? ? # ? ? ? ? ? ? . # # # # # # #]
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Solve-it">Solve it<a class="anchor-link" href="#Solve-it">&#182;</a></h2><p>Do step 1: generate sets of patterns that match the clues given for each row and column.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[9]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="n">rows_valid_patterns</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">generate_patterns</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">ROW_LEN</span><span class="p">))</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">ROW_CLUES</span><span class="p">]</span>
+<span class="n">cols_valid_patterns</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">generate_patterns</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">COL_LEN</span><span class="p">))</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">COL_CLUES</span><span class="p">]</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Calculate how many unknowns there are before we start trying to solve:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[10]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="n">unknowns</span> <span class="o">=</span> <span class="p">[</span><span class="n">count_unknowns</span><span class="p">(</span><span class="n">result</span><span class="p">)]</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Repeat through steps 2-5 until either:</p>
+<ul>
+<li>There are no more unknowns i.e. we've solved it</li>
+<li>The number of unknowns hasn't decreased since the last pass i.e. we've solved as much as possible</li>
+</ul>
+<p>Notes:</p>
+<ul>
+<li><strong>map</strong> is used to apply <strong>eliminate_patterns</strong> and <strong>generate_knowns</strong> to multiple rows/columns</li>
+<li><strong>zip(*)</strong> is used to transpose the <strong>results</strong> grid when working on columns, and transpose it back again before working on rows</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[11]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">unknowns</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">unknowns</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">unknowns</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]):</span>
+    <span class="nb">map</span><span class="p">(</span><span class="n">eliminate_patterns</span><span class="p">,</span> <span class="n">rows_valid_patterns</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">generate_knowns</span><span class="p">,</span> <span class="n">rows_valid_patterns</span><span class="p">)</span>
+    <span class="nb">map</span><span class="p">(</span><span class="n">eliminate_patterns</span><span class="p">,</span> <span class="n">cols_valid_patterns</span><span class="p">,</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">result</span><span class="p">))</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="nb">map</span><span class="p">(</span><span class="n">generate_knowns</span><span class="p">,</span> <span class="n">cols_valid_patterns</span><span class="p">))</span>
+    <span class="n">unknowns</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">count_unknowns</span><span class="p">(</span><span class="n">result</span><span class="p">))</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Display the results:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[12]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">u</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">unknowns</span><span class="p">):</span>
+    <span class="k">print</span> <span class="s">&#39;pass </span><span class="si">%s</span><span class="s">: </span><span class="si">%s</span><span class="s"> unknowns&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+<span class="n">print_grid</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>pass 0: 603 unknowns
+pass 1: 317 unknowns
+pass 2: 58 unknowns
+pass 3: 10 unknowns
+pass 4: 0 unknowns
+                        1 1 1 1 1 1 1 1 1 1 2 2 2 2 2
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4
+ 0 [# # # # # # # . # # # . . . # . # . # # # # # # #]
+ 1 [# . . . . . # . # # . # # . . . . . # . . . . . #]
+ 2 [# . # # # . # . . . . . # # # . # . # . # # # . #]
+ 3 [# . # # # . # . # . . # # # # # # . # . # # # . #]
+ 4 [# . # # # . # . . # # # # # . # # . # . # # # . #]
+ 5 [# . . . . . # . . # # . . . . . . . # . . . . . #]
+ 6 [# # # # # # # . # . # . # . # . # . # # # # # # #]
+ 7 [. . . . . . . . # # # . . . # # # . . . . . . . .]
+ 8 [# . # # . # # # . . # . # . # # # . # . . # . # #]
+ 9 [# . # . . . . . . # # # . # # . . . . # . . . # .]
+10 [. # # # # . # . # # # # . # # . # . . . . # # . .]
+11 [. # . # . . . # . . . # . # . # # # # . # . # # #]
+12 [. . # # . . # . # . # . . . . . . # # . # # # # #]
+13 [. . . # # # . # # . # # . # # # # # # . # # # . #]
+14 [# . # # # # # # # # # . # . # . . # # . . . . # .]
+15 [. # # . # . . # # . . . # # . # # # . . . . . # .]
+16 [# # # . # . # . # . . # . . . . # # # # # . # . .]
+17 [. . . . . . . . # . . . # # . # # . . . # # # # #]
+18 [# # # # # # # . # . . # # . . . # . # . # . # # #]
+19 [# . . . . . # . # # . . # . . # # . . . # # . # .]
+20 [# . # # # . # . . . # # # # . . # # # # # . . # .]
+21 [# . # # # . # . # # # . # # # # # # # # # # . # #]
+22 [# . # # # . # . # . . # # # # # # . # # # # # # .]
+23 [# . . . . . # . . # # . . . . . . # . # . # # . .]
+24 [# # # # # # # . # # . . . # . # # . . . # # # # #]
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre> 
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
